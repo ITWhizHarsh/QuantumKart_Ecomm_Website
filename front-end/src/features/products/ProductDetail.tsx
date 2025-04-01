@@ -1,4 +1,4 @@
-import { Form, Link, redirect, useActionData, useLoaderData, useRouteLoaderData } from "react-router-dom";
+import { Form, Link, redirect, useActionData, useLoaderData, useRouteLoaderData, LoaderFunctionArgs, ActionFunctionArgs } from "react-router-dom";
 
 import { AuthData } from "../auth/authData";
 import { ProductData } from "./productData";
@@ -18,7 +18,7 @@ type LoaderData = {
 }
 
 
-export async function addToCartAction({ params }) {
+export async function addToCartAction({ params }: ActionFunctionArgs) {
   // https://reactrouter.com/en/main/start/tutorial#data-writes--html-forms
   // https://reactrouter.com/en/main/route/action
   try {
@@ -38,13 +38,16 @@ export async function addToCartAction({ params }) {
       return errorMessage;
     }
     throw new Error("Unexpected status code.");
-  } catch (error) {
+  } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'status' in error && error.status === 404) {
+      throw error;
+    }
     return "Sorry, this item couldn't be added to your cart.";
   }
 }
 
 
-export async function productDetailLoader({ params }) {
+export async function productDetailLoader({ params }: LoaderFunctionArgs) {
   // https://reactrouter.com/en/main/start/tutorial#loading-data
   // https://reactrouter.com/en/main/route/loader
 
@@ -69,9 +72,9 @@ export async function productDetailLoader({ params }) {
       return redirect(canonicalPath);
     }
 
-  } catch (error) {
-    if (error.status === 404) {
-      throw error;  // Serve 404 error page
+  } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'status' in error && error.status === 404) {
+      throw error;
     }
     errMsg = "Sorry, this product could not be loaded.";
   }

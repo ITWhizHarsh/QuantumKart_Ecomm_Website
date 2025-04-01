@@ -1,5 +1,5 @@
 {
-  "name": "ecommerce-pern-app-back-end",
+  "name": "QuantumKart-back-end",
   "version": "1.0.0",
   "description": "The back-end of a Codecademy independent practice project to build a PERN app.",
   "main": "index.js",
@@ -8,7 +8,7 @@
     "dev": "nodemon index.js",
     "test": "jest --runInBand"
   },
-  "author": "Chris Mastris",
+  "author": "QuantumKart",
   "license": "ISC",
   "dependencies": {
     "bcrypt": "^5.1.1",
@@ -18,6 +18,7 @@
     "express": "^4.18.2",
     "express-session": "^1.17.3",
     "morgan": "^1.10.0",
+    "nodemon": "^3.1.9",
     "passport": "^0.6.0",
     "passport-google-oidc": "^0.1.0",
     "passport-local": "^1.0.0",

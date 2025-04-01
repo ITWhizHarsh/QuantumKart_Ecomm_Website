@@ -14,8 +14,6 @@ export async function registerAction({ request }: { request: Request }) {
     const email_address = formData.get("email_address");
     const password = formData.get("password");
     const customer_name = formData.get("customer_name");
-    const address = formData.get("address");
-    const postcode = formData.get("postcode");
     
     console.log(`Attempting to register with email: ${email_address}`);
     console.log(`API URL: ${process.env.REACT_APP_API_BASE_URL}/auth/register`);
@@ -26,7 +24,11 @@ export async function registerAction({ request }: { request: Request }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email_address, password, customer_name, address, postcode })
+        body: JSON.stringify({ 
+          email_address, 
+          password, 
+          customer_name
+        })
       }
     );
 
@@ -76,12 +78,6 @@ export function RegistrationPage() {
         
         <label htmlFor="customer_name" className={utilStyles.label}>Your Name</label>
         <input id="customer_name" className={utilStyles.input} type="text" name="customer_name" minLength={2} required />
-        
-        <label htmlFor="address" className={utilStyles.label}>Address</label>
-        <input id="address" className={utilStyles.input} type="text" name="address" minLength={5} required />
-        
-        <label htmlFor="postcode" className={utilStyles.label}>Postcode</label>
-        <input id="postcode" className={utilStyles.input} type="text" name="postcode" maxLength={8} required />
         
         <button type="submit" className={utilStyles.button}>Register</button>
       </Form>

@@ -1,4 +1,4 @@
-import { redirect, useLoaderData } from "react-router-dom";
+import { redirect, useLoaderData, LoaderFunctionArgs } from "react-router-dom";
 
 import { ProductData } from "./productData";
 import InlineErrorPage from "../../components/InlineErrorPage/InlineErrorPage";
@@ -46,7 +46,7 @@ async function fetchCategoryData(categorySlug: string) {
 }
 
 
-export async function productFeedLoader({ params, request }) {
+export async function productFeedLoader({ params, request }: LoaderFunctionArgs) {
   // https://reactrouter.com/en/main/start/tutorial#loading-data
   // https://reactrouter.com/en/main/route/loader
 
@@ -84,8 +84,8 @@ export async function productFeedLoader({ params, request }) {
     }
     productsData = await res.json();
 
-  } catch (error) {
-    if (error.status === 404) {
+  } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'status' in error && error.status === 404) {
       throw error;  // Serve 404 error page
     }
     errMsg = "Sorry, products could not be loaded.";

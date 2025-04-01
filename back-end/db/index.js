@@ -150,19 +150,71 @@ const updateCustomerLoyaltyPoints = async (customer_id, points) => {
 
 // Phone Numbers
 const addPhoneNumber = async (customer_id, phone_number) => {
-  const res = await query(
-    'INSERT INTO phone_numbers(customer_id, phone_number) VALUES($1, $2) RETURNING phone_number',
-    [customer_id, phone_number]
-  );
-  return res.rows[0];
+  try {
+    console.log('Adding phone number:', { customer_id, phone_number });
+    
+    if (!customer_id || !phone_number) {
+      console.error('Missing required fields:', {
+        customer_id: !!customer_id,
+        phone_number: !!phone_number
+      });
+      throw new Error('Missing required phone number fields');
+    }
+    
+    const res = await query(
+      'INSERT INTO phone_numbers(customer_id, phone_number) VALUES($1, $2) RETURNING phone_number',
+      [customer_id, phone_number]
+    );
+    
+    console.log('Phone number added successfully:', res.rows[0]);
+    return res.rows[0];
+  } catch (err) {
+    console.error('Error adding phone number:', err);
+    // Check for duplicate key violation
+    if (err.code === '23505') { // Postgres unique constraint violation
+      throw new Error('This phone number is already registered');
+    }
+    throw err;
+  }
 };
 
 const getCustomerPhoneNumbers = async (customer_id) => {
-  const res = await query(
-    'SELECT phone_number FROM phone_numbers WHERE customer_id=$1',
-    [customer_id]
-  );
-  return res.rows;
+  try {
+    console.log('Getting phone numbers for customer:', customer_id);
+    
+    const res = await query(
+      'SELECT phone_number FROM phone_numbers WHERE customer_id=$1',
+      [customer_id]
+    );
+    
+    console.log(`Found ${res.rows.length} phone numbers for customer ${customer_id}`);
+    return res.rows;
+  } catch (err) {
+    console.error('Error getting customer phone numbers:', err);
+    throw err;
+  }
+};
+
+const deletePhoneNumber = async (customer_id, phone_number) => {
+  try {
+    console.log('Deleting phone number:', { customer_id, phone_number });
+    
+    const res = await query(
+      'DELETE FROM phone_numbers WHERE customer_id=$1 AND phone_number=$2',
+      [customer_id, phone_number]
+    );
+    
+    if (res.rowCount === 0) {
+      console.warn('No phone number found to delete:', { customer_id, phone_number });
+      return false;
+    }
+    
+    console.log('Phone number deleted successfully');
+    return true;
+  } catch (err) {
+    console.error('Error deleting phone number:', err);
+    throw err;
+  }
 };
 
 
@@ -253,31 +305,160 @@ const deleteCartItem = async (customer_id, product_id) => {
 
 
 // Addresses
-const getAddressById = async (id) => {
-  const res = await query('SELECT address, postcode FROM addresses WHERE id=$1', [id]);
-  return res.rows[0];
+const addAddress = async (customer_id, house_no, locality, city, country, postcode) => {
+  try {
+    console.log('Adding address for customer:', { 
+      customer_id, house_no, locality, city, country, postcode 
+    });
+    
+    // Check if all required fields are present
+    if (!customer_id || !house_no || !locality || !city || !country || !postcode) {
+      console.error('Missing address fields:', JSON.stringify({
+        customer_id: !!customer_id, 
+        house_no: !!house_no, 
+        locality: !!locality, 
+        city: !!city, 
+        country: !!country, 
+        postcode: !!postcode
+      }));
+      throw new Error('Missing required address fields');
+    }
+    
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      // First insert or find the address
+      const addressRes = await client.query(
+        `INSERT INTO addresses(house_no, locality, city, country, postcode) 
+         VALUES($1, $2, $3, $4, $5) 
+         RETURNING address_id`,
+        [house_no, locality, city, country, postcode]
+      );
+      
+      const address_id = addressRes.rows[0].address_id;
+      
+      // Then link it to the customer
+      await client.query(
+        `INSERT INTO customer_addresses(customer_id, address_id) 
+         VALUES($1, $2) 
+         ON CONFLICT (customer_id, address_id) DO NOTHING`,
+        [customer_id, address_id]
+      );
+      
+      await client.query('COMMIT');
+      
+      console.log('Address added successfully with ID:', address_id);
+      
+      return {
+        address_id,
+        customer_id,
+        house_no,
+        locality,
+        city,
+        country,
+        postcode
+      };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      console.error('Error in transaction:', err);
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('Error adding address:', err);
+    console.error('Error details:', JSON.stringify({
+      message: err.message,
+      code: err.code,
+      constraint: err.constraint
+    }));
+    throw err;
+  }
 };
 
-const getAddressId = async (address, postcode) => {
-  const res = await query(
-    'SELECT id FROM addresses WHERE address=$1 AND postcode=$2',
-    [address, postcode]
-  );
-  return res.rows.length === 1 ? res.rows[0].id : undefined;
+const getUserAddresses = async (customer_id) => {
+  try {
+    console.log('Getting addresses for customer:', customer_id);
+    
+    const res = await query(
+      `SELECT a.address_id, a.house_no, a.locality, a.city, a.country, a.postcode 
+       FROM addresses a
+       JOIN customer_addresses ca ON a.address_id = ca.address_id
+       WHERE ca.customer_id = $1`,
+      [customer_id]
+    );
+    
+    console.log(`Found ${res.rows.length} addresses for customer ${customer_id}`);
+    return res.rows;
+  } catch (err) {
+    console.error('Error getting user addresses:', err);
+    throw err;
+  }
 };
 
-const addAddress = async (address, postcode) => {
-  const res = await query(
-    'INSERT INTO addresses(address, postcode) VALUES($1, $2) RETURNING id',
-    [address, postcode]
-  );
-  return res.rows[0].id;
+const deleteAddress = async (customer_id, address_id) => {
+  try {
+    console.log('Deleting address link:', { customer_id, address_id });
+    
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      // Remove the link from customer_addresses
+      await client.query(
+        'DELETE FROM customer_addresses WHERE customer_id=$1 AND address_id=$2',
+        [customer_id, address_id]
+      );
+      
+      // Check if this address is still linked to any customers
+      const linkRes = await client.query(
+        'SELECT COUNT(*) FROM customer_addresses WHERE address_id=$1',
+        [address_id]
+      );
+      
+      // If not linked to any customers, consider removing the address
+      if (parseInt(linkRes.rows[0].count) === 0) {
+        // But first check if it's used in any orders
+        const orderRes = await client.query(
+          'SELECT COUNT(*) FROM orders WHERE address_id=$1',
+          [address_id]
+        );
+        
+        // Only delete if not used in orders
+        if (parseInt(orderRes.rows[0].count) === 0) {
+          await client.query(
+            'DELETE FROM addresses WHERE address_id=$1',
+            [address_id]
+          );
+          console.log(`Address ${address_id} fully deleted as it was not in use`);
+        } else {
+          console.log(`Address ${address_id} kept for order history`);
+        }
+      } else {
+        console.log(`Address ${address_id} still linked to other customers`);
+      }
+      
+      await client.query('COMMIT');
+      return true;
+    } catch (err) {
+      await client.query('ROLLBACK');
+      console.error('Error in transaction:', err);
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('Error deleting address:', err);
+    throw err;
+  }
 };
 
 
 // Checkout
-const createPendingOrder = async (customer_id, address_id) => {
+const createPendingOrder = async (customer_id, address_id = null) => {
   // Create a pending order for all current cart items ahead of successful payment
+  console.log(`Creating pending order: customer_id=${customer_id}, address_id=${address_id}`);
 
   // Get cart items
   const cartItems = await getCartItems(customer_id);
@@ -290,11 +471,19 @@ const createPendingOrder = async (customer_id, address_id) => {
     // Create pending order record
     let total_cost = 0;
     const order_status = 'payment pending';
-    const orderCreationRes = await client.query(
-      'INSERT INTO orders(customer_id, address_id, status, total_cost) VALUES($1, $2, $3, $4) RETURNING id',
-      [customer_id, address_id, order_status, total_cost]
-    );
-    const order_id = orderCreationRes.rows[0].id;
+    
+    // Create the order with address_id
+    const orderQuery = address_id ? 
+      'INSERT INTO orders(customer_id, address_id, status, total_cost) VALUES($1, $2, $3, $4) RETURNING order_id' :
+      'INSERT INTO orders(customer_id, status, total_cost) VALUES($1, $2, $3) RETURNING order_id';
+    
+    const orderParams = address_id ? 
+      [customer_id, address_id, order_status, total_cost] :
+      [customer_id, order_status, total_cost];
+    
+    const orderCreationRes = await client.query(orderQuery, orderParams);
+    const order_id = orderCreationRes.rows[0].order_id;
+    console.log(`Created order with ID: ${order_id}`);
 
     // Update order_products table and calculate total order cost
     for await (const p of cartItems) {
@@ -310,36 +499,32 @@ const createPendingOrder = async (customer_id, address_id) => {
       total_cost += Number(product_price.substring(1)) * product_quantity;
     };
 
-    // Update order total_cost and retrieve order details
+    // Update order total_cost
     const orderSummaryRes = await client.query(
-      'UPDATE orders SET total_cost=$1 WHERE id=$2 RETURNING order_placed_time, total_cost',
+      'UPDATE orders SET total_cost=$1 WHERE order_id=$2 RETURNING order_placed_time, total_cost',
       [total_cost, order_id]
     );
     const order_placed_time = orderSummaryRes.rows[0].order_placed_time;
     total_cost = orderSummaryRes.rows[0].total_cost;
 
-    // Retrieve address details
-    const addressRes = await client.query(
-      'SELECT address, postcode FROM addresses WHERE id=$1',
-      [address_id]
-    );
-    const { address, postcode } = addressRes.rows[0];
-
     // Commit updates and return order details
     await client.query('COMMIT');
+    
+    console.log(`Order ${order_id} created successfully with total cost: ${total_cost}`);
+    
     return {
       order_id,
       customer_id: Number(customer_id),
+      address_id: address_id ? Number(address_id) : null,
       order_items: cartItems,
       order_placed_time,
       order_status,
-      total_cost,
-      address,
-      postcode
+      total_cost
     };
 
   } catch(err) {
     await client.query('ROLLBACK');
+    console.error('Error in transaction:', err);
     throw err;
 
   } finally {
@@ -417,10 +602,9 @@ const getOrderStatus = async (id) => {
 };
 
 const getOrderById = async (id) => {
-  const orderSelect = 'SELECT orders.id, customer_id, order_placed_time, status, total_cost, address, postcode';
-  const addressesJoin = 'JOIN addresses ON orders.address_id = addresses.id';
+  const orderSelect = 'SELECT orders.id, customer_id, order_placed_time, status, total_cost';
   const orderRes = await query(
-    `${orderSelect} FROM orders ${addressesJoin} WHERE orders.id=$1`,
+    `${orderSelect} FROM orders WHERE orders.id=$1`,
     [id]
   );
 
@@ -431,6 +615,19 @@ const getOrderById = async (id) => {
     [id]
   );
 
+  // Get the address information
+  const addressSelect = 'SELECT house_no, locality, city, country, postcode';
+  const addressRes = await query(
+    `${addressSelect} FROM addresses WHERE customer_id=$1 LIMIT 1`,
+    [orderRes.rows[0].customer_id]
+  );
+
+  const address = addressRes.rows.length > 0 ? 
+    `${addressRes.rows[0].house_no}, ${addressRes.rows[0].locality}, ${addressRes.rows[0].city}, ${addressRes.rows[0].country}` : 
+    'Address not found';
+  
+  const postcode = addressRes.rows.length > 0 ? addressRes.rows[0].postcode : '';
+
   return {
     order_id: orderRes.rows[0].id,
     customer_id: orderRes.rows[0].customer_id,
@@ -438,8 +635,8 @@ const getOrderById = async (id) => {
     order_placed_time: orderRes.rows[0].order_placed_time,
     order_status: orderRes.rows[0].status,
     total_cost: orderRes.rows[0].total_cost,
-    address: orderRes.rows[0].address,
-    postcode: orderRes.rows[0].postcode
+    address: address,
+    postcode: postcode
   };
 };
 
@@ -521,6 +718,7 @@ module.exports = {
   updateCustomerLoyaltyPoints,
   addPhoneNumber,
   getCustomerPhoneNumbers,
+  deletePhoneNumber,
   getProducts,
   getProductById,
   getCategories,
@@ -528,9 +726,9 @@ module.exports = {
   cartItemExists,
   addCartItem,
   deleteCartItem,
-  getAddressById,
-  getAddressId,
   addAddress,
+  getUserAddresses,
+  deleteAddress,
   createPendingOrder,
   confirmPaidOrder,
   getOrdersSummary,

@@ -1,4 +1,5 @@
 import { Link, useLoaderData, useRouteLoaderData } from "react-router-dom";
+import { LoaderFunctionArgs } from 'react-router-dom';
 
 import { AuthData } from "../auth/authData";
 import { OrderItemData } from "./orderItemData";
@@ -32,7 +33,7 @@ type LoaderData = {
 }
 
 
-export async function orderDetailsLoader({ params }) {
+export async function orderDetailsLoader({ params }: LoaderFunctionArgs) {
   // https://reactrouter.com/en/main/start/tutorial#loading-data
   // https://reactrouter.com/en/main/route/loader
 
@@ -54,8 +55,8 @@ export async function orderDetailsLoader({ params }) {
       throw new Error("Unsuccessful order fetch.");
     }
 
-  } catch (error) {
-    if (error.status === 404) {
+  } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'status' in error && error.status === 404) {
       throw error;  // Serve 404 error page
     }
     errMsg = errMsg ? errMsg : "Sorry, this order could not be loaded. Please try again later.";

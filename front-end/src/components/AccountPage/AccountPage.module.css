@@ -71,4 +71,202 @@
   color: #28a745;
   margin-top: 0.5rem;
   font-size: 0.9rem;
+}
+
+.profileSection,
+.addressesSection,
+.phoneSection,
+.loyaltySection,
+.ordersSection {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.profileDetails p {
+  margin: 0.75rem 0;
+}
+
+/* Address styles */
+.addressesContainer {
+  margin-top: 1rem;
+}
+
+.addressList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.addressCard {
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: white;
+  position: relative;
+}
+
+.addressCard p {
+  margin: 0;
+  line-height: 1.5;
+  padding-bottom: 2rem;
+}
+
+.addressForm {
+  margin-top: 1rem;
+  background-color: white;
+  padding: 1.5rem;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+}
+
+.addressForm h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+}
+
+.formRow {
+  margin-bottom: 1rem;
+}
+
+.formRow label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.inputField {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.formButtons {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+/* Phone number styles */
+.phonesContainer {
+  margin-top: 1rem;
+}
+
+.phoneList {
+  list-style: none;
+  padding: 0;
+  margin-bottom: 1.5rem;
+}
+
+.phoneItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+  background-color: white;
+}
+
+.addPhoneForm {
+  display: flex;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.addPhoneForm input {
+  flex: 1;
+}
+
+/* Button styles */
+.addButton,
+.saveButton,
+.cancelButton,
+.deleteButton {
+  cursor: pointer;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-weight: 500;
+  text-align: center;
+  transition: background-color 0.2s;
+}
+
+.addButton,
+.saveButton {
+  background-color: #4caf50;
+  color: white;
+  border: none;
+}
+
+.addButton:hover,
+.saveButton:hover {
+  background-color: #3e8e41;
+}
+
+.cancelButton {
+  background-color: #f8f9fa;
+  color: #333;
+  border: 1px solid #ddd;
+}
+
+.cancelButton:hover {
+  background-color: #e9ecef;
+}
+
+.deleteButton {
+  background-color: #f44336;
+  color: white;
+  border: none;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.85rem;
+  position: absolute;
+  bottom: 0.75rem;
+  right: 0.75rem;
+}
+
+.deleteButton:hover {
+  background-color: #d32f2f;
+}
+
+.errorMessage {
+  color: #f44336;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.phoneDisplay {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: white;
+  margin-bottom: 1rem;
+}
+
+.phoneValue {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.editButton {
+  background-color: #2196F3;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.editButton:hover {
+  background-color: #0b7dda;
 } 

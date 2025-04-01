@@ -66,7 +66,9 @@ router.get('/status', (req, res) => {
       logged_in: true,
       id: req.user.id,
       email_address: req.user.email_address,
-      auth_method: req.user.auth_method
+      auth_method: req.user.auth_method,
+      customer_name: req.user.customer_name,
+      loyalty_pts: req.user.loyalty_pts
     };
   }
   res.status(200).json(jsonData);
@@ -78,134 +80,59 @@ router.get('/register', jsonParser, (req, res) => {
 
 router.post('/register', jsonParser, async (req, res) => {
   try {
-    console.log('Registration request received:', req.body);
-    const { email_address, password, customer_name, address, postcode } = req.body;
+    console.log('Registration request received:', JSON.stringify(req.body));
+    
+    const { 
+      email_address, 
+      password, 
+      customer_name
+    } = req.body;
 
-    if (!email_address || !password) {
-      console.log('Missing required fields:', { email_address: !!email_address, password: !!password });
-      return res.status(400).send(
-        'Registration failed. Please provide both email address and password.'
-      );
+    // Core validation
+    if (!email_address || !password || !customer_name) {
+      return res.status(400).send('Required fields are missing: email, password, and name are required.');
     }
 
-    if (!address || !postcode) {
-      console.log('Missing address fields:', { address: !!address, postcode: !!postcode });
-      return res.status(400).send(
-        'Registration failed. Please provide address and postcode.'
-      );
+    // Check if email exists
+    const emailExists = await db.emailExists(email_address);
+    if (emailExists) {
+      return res.status(400).send('Email already registered.');
     }
-
-    const userExists = await db.emailExists(email_address);
-    if (userExists) {
-      console.log('User already exists with email:', email_address);
-      return res.status(400).send(
-        `Registration failed. The email '${email_address}' is already registered; please use another.`
-      );
-    }
-
-    // Hash the password
+    
+    // Hash password
+    const hashed_pw = await bcrypt.hash(password, 10);
+    
+    // Add customer
     try {
-      console.log('Hashing password...');
-      const hashedPassword = await bcrypt.hash(password, 10);
+      const customer = await db.addLocalCustomer(email_address, hashed_pw, customer_name, null);
+      console.log('Customer created with ID:', customer.id);
       
-      // Use provided customer_name or extract from email if not provided
-      const finalCustomerName = customer_name || email_address.split('@')[0];
-      const customer_age = null; // Set to null as it's optional
-      
-      console.log('Creating new customer with:', { 
-        email_address, 
-        customer_name: finalCustomerName,
-        auth_method: 'local'
-      });
-      
-      try {
-        // Use a transaction to ensure both customer and address are created
-        const client = await db.getClient();
-        
-        try {
-          await client.query('BEGIN');
-          
-          console.log('Transaction started, adding customer with details:', {
-            email_address,
-            customer_name: finalCustomerName
+      // Login the user
+      req.login({ id: customer.id, email_address, auth_method: 'local' }, (err) => {
+        if (err) {
+          console.error('Login error:', err);
+          return res.status(200).json({
+            logged_in: false,
+            message: 'User created but auto-login failed. Please login manually.'
           });
-          
-          // Add the customer
-          const customerResult = await client.query(
-            'INSERT INTO customers(email_address, hashed_pw, auth_method, customer_name, customer_age, loyalty_pts) VALUES($1, $2, $3, $4, $5, 0) RETURNING id, email_address, customer_name, customer_age, loyalty_pts',
-            [email_address, hashedPassword, 'local', finalCustomerName, customer_age]
-          );
-          
-          const userData = customerResult.rows[0];
-          console.log('Customer created, ID:', userData.id);
-          
-          // Check addresses table structure
-          try {
-            console.log('Checking addresses table structure...');
-            const tableInfo = await client.query(`
-              SELECT column_name, data_type, is_nullable
-              FROM information_schema.columns
-              WHERE table_name = 'addresses'
-              ORDER BY ordinal_position
-            `);
-            console.log('Addresses table structure:', tableInfo.rows);
-          } catch (err) {
-            console.error('Error checking table structure:', err);
-          }
-          
-          // Add the address for the customer
-          console.log('Adding address for customer ID:', userData.id, {address, postcode});
-          await client.query(
-            'INSERT INTO addresses(customer_id, address, postcode) VALUES($1, $2, $3)',
-            [userData.id, address, postcode]
-          );
-          
-          await client.query('COMMIT');
-          console.log('Transaction committed successfully');
-          console.log('Customer and address created successfully:', userData);
-          
-          const authData = {
-            id: userData.id,
-            email_address: userData.email_address,
-            auth_method: 'local',
-            customer_name: userData.customer_name,
-            customer_age: userData.customer_age,
-            loyalty_pts: userData.loyalty_pts
-          };
-          
-          req.login(authData, function(err) {
-            if (err) {
-              console.error('Login error after registration:', err);
-              return res.status(201).json(userData);
-            }
-            console.log('User logged in after registration');
-            return res.status(201).json(userData);
-          });
-          
-        } catch (err) {
-          await client.query('ROLLBACK');
-          console.error('Transaction error during registration:', err);
-          throw err;
-        } finally {
-          client.release();
         }
-      } catch (err) {
-        console.error('Error during customer registration:', err);
-        return res.status(500).send(
-          'Registration failed. Database error creating user or address.'
-        );
-      }
-    } catch (err) {
-      console.error('Error hashing password:', err);
-      return res.status(500).send(
-        'Registration failed. Error processing password.'
-      );
+        
+        return res.status(200).json({
+          logged_in: true,
+          id: customer.id,
+          email_address: customer.email_address,
+          auth_method: 'local',
+          customer_name: customer.customer_name,
+          loyalty_pts: customer.loyalty_pts
+        });
+      });
+    } catch (userError) {
+      console.error('User creation failed:', userError);
+      return res.status(500).send(`User creation failed: ${userError.message}`);
     }
-  } catch(err) {
-    console.error('Registration error:', err);
-    res.status(500).send(
-      'Registration failed. Please ensure you are providing the required data.'
-    );
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).send(`Registration failed: ${error.message}`);
   }
 });
 
@@ -220,7 +147,9 @@ router.post('/login',
     res.status(200).json({
       id: req.user.id,
       email_address: req.user.email_address,
-      auth_method: req.user.auth_method
+      auth_method: req.user.auth_method,
+      customer_name: req.user.customer_name,
+      loyalty_pts: req.user.loyalty_pts
     });
   }
 );
@@ -280,6 +209,71 @@ router.get('/fix-database', async (req, res) => {
   } catch (err) {
     console.error('Error fixing database:', err);
     res.status(500).send('Error fixing database: ' + err.message);
+  }
+});
+
+// Add a diagnostic route to check the database structure
+router.get('/check-db', async (req, res) => {
+  try {
+    const client = await db.getClient();
+    const results = {};
+    
+    try {
+      // Check addresses table structure
+      const tableInfo = await client.query(`
+        SELECT column_name, data_type, is_nullable
+        FROM information_schema.columns
+        WHERE table_name = 'addresses'
+        ORDER BY ordinal_position
+      `);
+      results.addressesColumns = tableInfo.rows;
+      
+      // Check primary key constraint
+      const pkInfo = await client.query(`
+        SELECT c.column_name, c.constraint_name
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.constraint_column_usage AS ccu USING (constraint_schema, constraint_name) 
+        JOIN information_schema.columns AS c ON c.table_name = tc.table_name AND c.column_name = ccu.column_name
+        WHERE tc.constraint_type = 'PRIMARY KEY' AND tc.table_name = 'addresses'
+      `);
+      results.addressesPK = pkInfo.rows;
+      
+      // Try a simple insert to test if addresses table works
+      try {
+        await client.query('BEGIN');
+        // Insert a test customer
+        const testCustomerRes = await client.query(
+          'INSERT INTO customers(email_address, hashed_pw, auth_method, customer_name) VALUES($1, $2, $3, $4) RETURNING id',
+          [`test_${Date.now()}@example.com`, 'test_hash', 'local', 'Test User']
+        );
+        const testCustomerId = testCustomerRes.rows[0].id;
+        
+        // Try to insert an address for this customer
+        await client.query(
+          'INSERT INTO addresses(customer_id, house_no, locality, city, country, postcode) VALUES($1, $2, $3, $4, $5, $6)',
+          [testCustomerId, '123', 'Test Area', 'Test City', 'Test Country', '12345']
+        );
+        
+        results.insertTest = "Address insert successful";
+        
+        // Rollback the test
+        await client.query('ROLLBACK');
+      } catch (insertErr) {
+        results.insertTest = `Address insert failed: ${insertErr.message}`;
+        await client.query('ROLLBACK');
+      }
+      
+      res.status(200).json(results);
+    } catch (err) {
+      res.status(500).json({
+        error: err.message,
+        stack: err.stack
+      });
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    res.status(500).send(`Database connection error: ${err.message}`);
   }
 });
 
