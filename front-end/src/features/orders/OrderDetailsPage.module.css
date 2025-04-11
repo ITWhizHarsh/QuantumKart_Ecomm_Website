@@ -5,6 +5,46 @@
   max-width: 40rem;
 }
 
+.successMessage {
+  background-color: #d4edda;
+  border-left: 4px solid #28a745;
+  padding: 1.25rem;
+  margin-bottom: 2rem;
+  border-radius: 4px;
+}
+
+.successMessage p {
+  margin: 0.5rem 0;
+}
+
+.loyaltyInfo {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background-color: rgba(40, 167, 69, 0.1);
+  border-radius: 4px;
+}
+
+.loyaltyInfo h3 {
+  margin-top: 0;
+  color: #28a745;
+}
+
+.refreshButton {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  margin-top: 10px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s;
+}
+
+.refreshButton:hover {
+  background-color: #218838;
+}
+
 @media screen and (max-width: 500px) {
   .detailsContainer {
     grid-template-columns: 1fr;

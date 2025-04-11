@@ -3,17 +3,25 @@ export function formatCurrency(amount: number | string): string {
   let numericAmount;
   
   if (typeof amount === 'string') {
-    // Remove any currency symbol (like $, P, etc.) and whitespace
-    numericAmount = parseFloat(amount.replace(/[^0-9.-]+/g, ''));
+    // Check if it already includes currency format
+    if (amount.includes('Rs ') || amount.includes('₹ ')) {
+      // If it's already formatted, extract the numeric part
+      const cleanedAmount = amount.replace(/[^0-9.-]+/g, '');
+      numericAmount = parseFloat(cleanedAmount);
+    } else {
+      // Otherwise just remove any non-numeric characters except decimal point
+      const cleanedAmount = amount.replace(/[^0-9.-]+/g, '');
+      numericAmount = parseFloat(cleanedAmount);
+    }
   } else {
     numericAmount = amount;
   }
   
   // Check if the amount is a valid number
   if (isNaN(numericAmount)) {
-    return '₨ 0.00';
+    return 'Rs 0.00';
   }
   
-  // Always use the Rupee symbol (₨) with a space
-  return `₨ ${numericAmount.toFixed(2)}`;
+  // Use Rs symbol with a space
+  return `Rs ${numericAmount.toFixed(2)}`;
 } 

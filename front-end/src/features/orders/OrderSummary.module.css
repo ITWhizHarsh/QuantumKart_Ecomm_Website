@@ -1,11 +1,13 @@
 .orderSummary {
   max-width: 40rem;
+  margin-bottom: 1rem;
 }
 
 .flexContainer {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 1rem 0;
 }
 
 .contentContainer {
@@ -14,6 +16,7 @@
 
 .button {
   min-width: 10em;
+  text-align: center;
 }
 
 @media screen and (max-width: 350px) {

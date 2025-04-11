@@ -1,0 +1,66 @@
+.manufacturerLayout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+:global(body.manufacturer-view) .manufacturerLayout .manufacturerHeader {
+  display: flex !important;
+}
+
+/* Ensure manufacturer header remains visible */
+.manufacturerHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: rgb(19, 25, 33);
+  padding: 1rem 2.5%;
+  color: white;
+}
+
+.logoSection {
+  display: flex;
+  align-items: center;
+}
+
+.logo {
+  font-size: 2rem;
+  margin: 0;
+  color: white;
+}
+
+.highlight {
+  color: rgb(255, 153, 0);
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+}
+
+.logoutButton {
+  background-color: transparent;
+  border: 1px solid white;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.2s;
+}
+
+.logoutButton:hover {
+  background-color: white;
+  color: rgb(19, 25, 33);
+}
+
+@media screen and (max-width: 768px) {
+  .manufacturerHeader {
+    flex-direction: column;
+    padding: 1rem;
+  }
+
+  .headerRight {
+    margin-top: 1rem;
+  }
+} 

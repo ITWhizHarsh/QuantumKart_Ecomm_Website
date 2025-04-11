@@ -2,6 +2,7 @@ import { Outlet } from "react-router-dom";
 
 import { AuthData } from "../features/auth/authData";
 import Header from "../components/Header/Header";
+import { ManufacturerRegistrationPage, manufacturerRegisterAction } from '../features/auth/ManufacturerRegistrationPage';
 
 
 export async function authLoader() {
@@ -18,7 +19,13 @@ export async function authLoader() {
     }
     throw new Error("Unexpected status code.");
   } catch (error) {
-    return { logged_in: false, id: null, email_address: null, auth_method: null } as AuthData;
+    return { 
+      logged_in: false, 
+      id: null, 
+      email_address: null, 
+      auth_method: null,
+      company_name: null 
+    } as AuthData;
   }
 }
 

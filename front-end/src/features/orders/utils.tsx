@@ -54,9 +54,11 @@ export function renderOrderItems(orderItemsData: OrderItemData[], editable: bool
       </thead>
       <tbody>
         {orderItemsData.map((item) => {
-          const { product_id, product_name, product_price, product_quantity } = item;
+          const { product_id, product_name, product_price, product_quantity, image_path } = item;
+          console.log(`DEBUG - Cart item: ${product_name} (ID: ${product_id}), Image path: ${image_path}`);
           const productPath = getProductDetailPath(product_id, product_name);
-          const imagePath = getProductImagePath(product_id, product_name);
+          const imagePath = getProductImagePath(product_id, product_name, image_path);
+          console.log(`DEBUG - Final image path: ${imagePath}`);
           const numericPrice = parseFloat(product_price.replace(/[^0-9.-]+/g, ''));
           const itemTotal = numericPrice * product_quantity;
           

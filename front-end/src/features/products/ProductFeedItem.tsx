@@ -17,7 +17,7 @@ type ProductFeedItemProps = {
 export default function ProductFeedItem({ productData }: ProductFeedItemProps) {
 
   const detailPath = getProductDetailPath(productData.id, productData.name);
-  const imagePath = getProductImagePath(productData.id, productData.name);
+  const imagePath = getProductImagePath(productData.id, productData.name, productData.image_path);
   const { avg_rating, rating_count, price } = productData;
 
   return (

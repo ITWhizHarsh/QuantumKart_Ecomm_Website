@@ -29,13 +29,17 @@ async function localCustomerVerify(username, password, done) {
     if (!matchedPassword) {
       return done(null, false, { message: 'Incorrect email address or password.' });
     }
+    
+    // Get loyalty points from customer_loyalty table
+    const loyalty_pts = await db.getCustomerLoyaltyPoints(customer.id);
+    
     return done(null, {
       id: customer.id,
       email_address: customer.email_address,
       auth_method: customer.auth_method,
       customer_name: customer.customer_name,
       customer_age: customer.customer_age,
-      loyalty_pts: customer.loyalty_pts
+      loyalty_pts: loyalty_pts
     });
 
   } catch(err) {
@@ -95,13 +99,17 @@ async function googleCustomerVerify(issuer, profile, done) {
     if (!customer) {
       customer = await db.addGoogleCustomer(email_address, customer_name, customer_age);
     }
+    
+    // Get loyalty points from customer_loyalty table
+    const loyalty_pts = await db.getCustomerLoyaltyPoints(customer.id);
+    
     return done(null, {
       id: customer.id,
       email_address: customer.email_address,
       auth_method: 'google',
       customer_name: customer.customer_name,
       customer_age: customer.customer_age,
-      loyalty_pts: customer.loyalty_pts
+      loyalty_pts: loyalty_pts
     });
   } catch(err) {
     return done(null, null);

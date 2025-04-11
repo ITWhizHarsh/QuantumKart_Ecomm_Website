@@ -25,11 +25,20 @@ export async function loginAction({ request }: { request: Request }) {
     );
 
     if (res.ok) {
-      let redirectPath = new URL(request.url).searchParams.get("redirect") || "/account";
+      // Check if the user is a manufacturer and redirect accordingly
+      const userData = await res.json();
+      
+      let redirectPath = new URL(request.url).searchParams.get("redirect");
+      if (!redirectPath) {
+        // If no specific redirect is provided, use different default paths based on user type
+        redirectPath = userData.auth_method === 'manufacturer' ? "/manufacturer-dashboard" : "/account";
+      }
+      
       if (redirectPath.charAt(0) !== "/") {
         // Prevent external navigation
         redirectPath = `/${redirectPath}`;
       }
+      
       return redirect(redirectPath);
 
     } else if (res.status === 401) {

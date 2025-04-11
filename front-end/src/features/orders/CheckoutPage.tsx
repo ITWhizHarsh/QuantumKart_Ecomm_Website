@@ -25,18 +25,23 @@ export async function checkoutAction({ request }: { request: Request }) {
   let formData = await request.formData();
   try {
     const addressType = formData.get("addressType");
+    const redeemPoints = formData.get("redeemLoyaltyPoints") === "on";
     
     // Different handling based on whether using saved address or new address
-    let requestBody: any = {};
+    let requestBody: any = {
+      redeemPoints
+    };
     
     if (addressType === "saved") {
       const addressId = formData.get("savedAddress");
       requestBody = {
+        ...requestBody,
         address_id: addressId
       };
     } else {
       // New address
       requestBody = {
+        ...requestBody,
         house_no: formData.get("house_no"),
         locality: formData.get("locality"),
         city: formData.get("city"),
@@ -81,12 +86,31 @@ export function CheckoutPage() {
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [redeemLoyaltyPoints, setRedeemLoyaltyPoints] = useState(false);
+  const [totalCost, setTotalCost] = useState(0);
+  const [discountedCost, setDiscountedCost] = useState(0);
 
   useEffect(() => {
     if (authData.logged_in && authData.id) {
       fetchAddresses();
     }
-  }, [authData]);
+    
+    // Calculate total cost
+    const cost = calculateTotalCost();
+    setTotalCost(cost);
+    setDiscountedCost(cost);
+  }, [authData, cartData]);
+  
+  // Recalculate discounted cost when redeem points changes
+  useEffect(() => {
+    if (redeemLoyaltyPoints && authData.loyalty_pts) {
+      // Apply loyalty points discount - convert points to currency value (1:1 ratio)
+      const discount = Math.min(authData.loyalty_pts, totalCost);
+      setDiscountedCost(totalCost - discount);
+    } else {
+      setDiscountedCost(totalCost);
+    }
+  }, [redeemLoyaltyPoints, totalCost, authData.loyalty_pts]);
 
   const fetchAddresses = async () => {
     try {
@@ -124,14 +148,14 @@ export function CheckoutPage() {
     return <InlineErrorPage pageName="Checkout" message="Your cart is empty so it is not possible to checkout." />;
   }
 
-  function getTotalCost() {
-    let totalCost = 0;
+  function calculateTotalCost() {
+    let cost = 0;
     cartData.forEach(item => {
       // Extract numeric value from the price string by removing currency symbols
       const numericPrice = parseFloat(item.product_price.replace(/[^0-9.-]+/g, ''));
-      totalCost += numericPrice * item.product_quantity;
+      cost += numericPrice * item.product_quantity;
     });
-    return totalCost;
+    return cost;
   }
 
   const formatAddressKey = (address: Address) => {
@@ -145,8 +169,34 @@ export function CheckoutPage() {
       <h2>Order items</h2>
       {renderOrderItems(cartData, false)}
       <div className={`${utilStyles.mb3rem} ${utilStyles.XLText}`}>
-        <strong>Total cost: <span className={utilStyles.red}>{formatCurrency(getTotalCost())}</span></strong>
+        <strong>Total cost: <span className={utilStyles.red}>{formatCurrency(totalCost)}</span></strong>
       </div>
+      
+      {/* Loyalty Points Redemption */}
+      {(authData.loyalty_pts && authData.loyalty_pts > 0) && (
+        <div className={styles.loyaltySection}>
+          <h2>Loyalty Points</h2>
+          <p>You have <strong>{authData.loyalty_pts}</strong> loyalty points available.</p>
+          
+          <label className={styles.checkboxLabel}>
+            <input
+              type="checkbox"
+              checked={redeemLoyaltyPoints}
+              onChange={(e) => setRedeemLoyaltyPoints(e.target.checked)}
+            />
+            Redeem my loyalty points
+          </label>
+          
+          {redeemLoyaltyPoints && (
+            <div className={styles.discountInfo}>
+              <p>Points to redeem: <strong>{Math.min(authData.loyalty_pts || 0, totalCost)}</strong></p>
+              <p className={styles.discountedPrice}>
+                Discounted price: <strong>{formatCurrency(discountedCost)}</strong>
+              </p>
+            </div>
+          )}
+        </div>
+      )}
       
       <h2>Delivery address</h2>
       {error && <p className={styles.errorMessage}>{error}</p>}
@@ -253,31 +303,40 @@ export function CheckoutPage() {
                   name="postcode"
                   type="text"
                   className={utilStyles.input}
-                  minLength={5}
-                  maxLength={8}
                   required={addressType === "new"}
                 />
               </div>
               
-              <div className={styles.saveAddressOption}>
-                <label className={styles.checkboxLabel}>
-                  <input type="checkbox" name="saveAddress" />
-                  Save this address to my account
-                </label>
-              </div>
+              <label className={styles.checkboxLabel}>
+                <input 
+                  type="checkbox" 
+                  name="saveAddress" 
+                />
+                Save this address for future orders
+              </label>
             </div>
           )}
           
-          <button type="submit" className={`${utilStyles.mt2rem} ${utilStyles.button}`}>Continue to payment</button>
+          {/* Hidden field to pass loyalty points redemption status */}
+          <input
+            type="checkbox"
+            name="redeemLoyaltyPoints"
+            checked={redeemLoyaltyPoints}
+            onChange={() => {}}
+            style={{ display: 'none' }}
+          />
+          
+          <button type="submit" className={`${utilStyles.button} ${utilStyles.primaryButton}`}>
+            Proceed to payment
+          </button>
+          
+          {checkoutErrMsg && <p className={styles.errorMessage}>{checkoutErrMsg}</p>}
+          
+          <div className={styles.backLink}>
+            <Link to="/cart">&larr; Return to cart</Link>
+          </div>
         </Form>
       )}
-      
-      {checkoutErrMsg ? (
-        <div className={utilStyles.mt2rem}>
-          <p className={`${utilStyles.mb2rem} ${utilStyles.red}`}><strong>{checkoutErrMsg}</strong></p>
-          <Link to="/" className={utilStyles.button}>Continue shopping</Link>
-        </div>
-      ) : null}
     </div>
   );
 }

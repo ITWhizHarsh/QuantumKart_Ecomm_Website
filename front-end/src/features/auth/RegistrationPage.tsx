@@ -1,4 +1,5 @@
 import { Form, redirect, useActionData, useRouteLoaderData } from "react-router-dom";
+import React, { useState } from 'react';
 
 import { AuthData } from "./authData";
 import InlineLink from "../../components/InlineLink/InlineLink";
@@ -57,6 +58,7 @@ export function RegistrationPage() {
   // https://reactrouter.com/en/main/hooks/use-route-loader-data
   const authData = useRouteLoaderData("app") as AuthData;
   const registrationError = useActionData() as string | undefined;
+  const [userType, setUserType] = useState('user');
 
   const loginLink = <InlineLink path="/login" anchor="log in" />;
   const loggedOutContent = (
@@ -65,11 +67,47 @@ export function RegistrationPage() {
   );
   const loggedInContent = <>You are already logged in as {authData.email_address}.</>;
 
+  const handleUserTypeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newUserType = e.target.value;
+    setUserType(newUserType);
+    
+    // Immediately redirect if manufacturer is selected
+    if (newUserType === 'manufacturer') {
+      window.location.href = '/manufacturer-registration';
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    // Removed the redirection logic - it's now in handleUserTypeChange
+  };
+
   return (
     <div className={`${utilStyles.pagePadding} ${utilStyles.mw80rem}`}>
       <h1 className={utilStyles.h1}>Create your account</h1>
       <p className={utilStyles.mb2rem}>{authData.logged_in ? loggedInContent : loggedOutContent}</p>
-      <Form method="post" className={utilStyles.stackedForm}>
+      <Form method="post" className={utilStyles.stackedForm} onSubmit={handleSubmit}>
+        <div className={utilStyles.formGroup}>
+          <label>
+            <input
+              type="radio"
+              name="userType"
+              value="user"
+              checked={userType === 'user'}
+              onChange={handleUserTypeChange}
+            />
+            Register as User
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="userType"
+              value="manufacturer"
+              checked={userType === 'manufacturer'}
+              onChange={handleUserTypeChange}
+            />
+            Register as Manufacturer
+          </label>
+        </div>
         <label htmlFor="email_address" className={utilStyles.label}>Email</label>
         <input id="email_address" className={utilStyles.input} type="email" name="email_address" minLength={5} required />
         

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useRouteLoaderData } from "react-router-dom";
+import { useRouteLoaderData, useNavigate } from "react-router-dom";
 
 import { AuthData } from "../../features/auth/authData";
 import InlineErrorPage from "../InlineErrorPage/InlineErrorPage";
@@ -24,6 +24,7 @@ type PhoneNumber = {
 export default function AccountPage() {
   // https://reactrouter.com/en/main/hooks/use-route-loader-data
   const authData = useRouteLoaderData("app") as AuthData;
+  const navigate = useNavigate();
   
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [phoneNumbers, setPhoneNumbers] = useState<PhoneNumber[]>([]);
@@ -42,13 +43,19 @@ export default function AccountPage() {
   const [addressError, setAddressError] = useState("");
 
   useEffect(() => {
+    // Redirect manufacturers to their dashboard
+    if (authData.logged_in && authData.auth_method === 'manufacturer') {
+      navigate('/manufacturer-dashboard');
+      return;
+    }
+
     if (authData.logged_in && authData.id) {
       // Fetch addresses
       fetchAddresses();
       // Fetch phone numbers
       fetchPhoneNumbers();
     }
-  }, [authData]);
+  }, [authData, navigate]);
 
   const fetchAddresses = async () => {
     try {
@@ -212,7 +219,7 @@ export default function AccountPage() {
       <section className={styles.profileSection}>
         <h2>Profile Details</h2>
         <div className={styles.profileDetails}>
-          <p><strong>Name:</strong> {authData.customer_name}</p>
+          <p><strong>I am:</strong> {authData.customer_name}</p>
           <p><strong>Email:</strong> {authData.email_address}</p>
           {authData.customer_age && <p><strong>Age:</strong> {authData.customer_age}</p>}
           <p><strong>Loyalty Points:</strong> {authData.loyalty_pts || 0}</p>
@@ -398,13 +405,13 @@ export default function AccountPage() {
       <section className={styles.loyaltySection}>
         <h2>Loyalty Program</h2>
         <p>Use your loyalty points to get discounts on your purchases!</p>
-        <InlineLink path="/loyalty-program" anchor="View available rewards" />
+        <p className={styles.pointsDisplay}>You have <strong>{authData.loyalty_pts || 0}</strong> loyalty points available</p>
       </section>
 
       {/* Orders Section */}
       <section className={styles.ordersSection}>
         <h2>Your Orders</h2>
-        <p className={utilStyles.mb3rem}>
+        <p className={utilStyles.mb2rem}>
           View your previous orders below or <InlineLink path="/cart" anchor="visit your cart" />.
         </p>
         <OrdersHistory />

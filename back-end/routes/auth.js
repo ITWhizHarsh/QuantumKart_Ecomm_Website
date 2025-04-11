@@ -23,13 +23,16 @@ passport.use(new LocalStrategy({
     if (customer) {
       const matchedPassword = await bcrypt.compare(password, customer.hashed_pw);
       if (matchedPassword) {
+        // Get loyalty points from customer_loyalty table
+        const loyalty_pts = await db.getCustomerLoyaltyPoints(customer.id);
+        
         return done(null, {
           id: customer.id,
           email_address: customer.email_address,
           auth_method: 'local',
           customer_name: customer.customer_name,
           customer_age: customer.customer_age,
-          loyalty_pts: customer.loyalty_pts
+          loyalty_pts: loyalty_pts
         });
       }
     }
@@ -57,20 +60,36 @@ passport.use(new LocalStrategy({
   }
 }));
 
-router.get('/status', (req, res) => {
+router.get('/status', async (req, res) => {
   let jsonData;
   if (!req.isAuthenticated()) {
     jsonData = { logged_in: false, id: null, email_address: null, auth_method: null };
   } else {
+    // Base data for all auth types
     jsonData = {
       logged_in: true,
       id: req.user.id,
       email_address: req.user.email_address,
-      auth_method: req.user.auth_method,
-      customer_name: req.user.customer_name,
-      loyalty_pts: req.user.loyalty_pts
+      auth_method: req.user.auth_method
     };
+    
+    // Add auth-specific data
+    if (req.user.auth_method === 'manufacturer') {
+      // For manufacturers
+      jsonData.company_name = req.user.company_name;
+      jsonData.agent_name = req.user.agent_name;
+      jsonData.no_of_products = req.user.no_of_products;
+    } else {
+      // For regular customers
+      jsonData.customer_name = req.user.customer_name;
+      
+      // Get loyalty points from customer_loyalty table
+      jsonData.loyalty_pts = await db.getCustomerLoyaltyPoints(req.user.id);
+      console.log(`Fetched loyalty points for user ${req.user.id}: ${jsonData.loyalty_pts}`);
+    }
   }
+  
+  console.log('Auth status response:', jsonData);
   res.status(200).json(jsonData);
 });
 
@@ -107,6 +126,9 @@ router.post('/register', jsonParser, async (req, res) => {
       const customer = await db.addLocalCustomer(email_address, hashed_pw, customer_name, null);
       console.log('Customer created with ID:', customer.id);
       
+      // Initialize loyalty points
+      const loyalty_pts = await db.getCustomerLoyaltyPoints(customer.id);
+      
       // Login the user
       req.login({ id: customer.id, email_address, auth_method: 'local' }, (err) => {
         if (err) {
@@ -123,7 +145,7 @@ router.post('/register', jsonParser, async (req, res) => {
           email_address: customer.email_address,
           auth_method: 'local',
           customer_name: customer.customer_name,
-          loyalty_pts: customer.loyalty_pts
+          loyalty_pts: loyalty_pts
         });
       });
     } catch (userError) {
@@ -143,14 +165,30 @@ router.get('/login', jsonParser, (req, res) => {
 router.post('/login',
   jsonParser,
   passport.authenticate('local', { failureMessage: true }),
-  function(req, res) {
-    res.status(200).json({
+  async function(req, res) {
+    // Base data for all auth types
+    const responseData = {
       id: req.user.id,
       email_address: req.user.email_address,
-      auth_method: req.user.auth_method,
-      customer_name: req.user.customer_name,
-      loyalty_pts: req.user.loyalty_pts
-    });
+      auth_method: req.user.auth_method
+    };
+    
+    // Add auth-specific data
+    if (req.user.auth_method === 'manufacturer') {
+      // For manufacturers
+      responseData.company_name = req.user.company_name;
+      responseData.agent_name = req.user.agent_name;
+      responseData.no_of_products = req.user.no_of_products;
+    } else {
+      // For regular customers
+      responseData.customer_name = req.user.customer_name;
+      
+      // Get loyalty points from customer_loyalty table
+      responseData.loyalty_pts = await db.getCustomerLoyaltyPoints(req.user.id);
+    }
+    
+    console.log('Login response:', responseData);
+    res.status(200).json(responseData);
   }
 );
 
@@ -274,6 +312,69 @@ router.get('/check-db', async (req, res) => {
     }
   } catch (err) {
     res.status(500).send(`Database connection error: ${err.message}`);
+  }
+});
+
+// Manufacturer Registration
+router.post('/register-manufacturer', jsonParser, async (req, res) => {
+  try {
+    console.log('Manufacturer registration request received:', JSON.stringify(req.body));
+    
+    const { 
+      email_address, 
+      password, 
+      company_name
+    } = req.body;
+
+    // Core validation
+    if (!email_address || !password || !company_name) {
+      return res.status(400).send('Required fields are missing: email, password, and company name are required.');
+    }
+
+    // Check if email exists
+    const emailExists = await db.emailExists(email_address);
+    if (emailExists) {
+      return res.status(400).send('Email already registered.');
+    }
+    
+    // Hash password
+    const hashed_pw = await bcrypt.hash(password, 10);
+    
+    // Add manufacturer
+    try {
+      const manufacturer = await db.addManufacturer(email_address, hashed_pw, company_name, null);
+      console.log('Manufacturer created with ID:', manufacturer.id);
+      
+      // Login the user
+      req.login({ 
+        id: manufacturer.id, 
+        email_address, 
+        auth_method: 'manufacturer',
+        company_name: manufacturer.company_name
+      }, (err) => {
+        if (err) {
+          console.error('Login error:', err);
+          return res.status(200).json({
+            logged_in: false,
+            message: 'Manufacturer account created but auto-login failed. Please login manually.'
+          });
+        }
+        
+        return res.status(200).json({
+          logged_in: true,
+          id: manufacturer.id,
+          email_address: email_address,
+          auth_method: 'manufacturer',
+          company_name: manufacturer.company_name
+        });
+      });
+    } catch (userError) {
+      console.error('Manufacturer creation failed:', userError);
+      return res.status(500).send(`Manufacturer creation failed: ${userError.message}`);
+    }
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).send(`Registration failed: ${error.message}`);
   }
 });
 

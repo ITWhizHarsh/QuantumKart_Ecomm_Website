@@ -62,9 +62,9 @@
 }
 
 .errorMessage {
-  color: #dc3545;
-  margin-top: 0.5rem;
+  color: #f44336;
   font-size: 0.9rem;
+  margin-bottom: 1rem;
 }
 
 .successMessage {
@@ -234,10 +234,10 @@
   background-color: #d32f2f;
 }
 
-.errorMessage {
-  color: #f44336;
-  font-size: 0.9rem;
-  margin-bottom: 1rem;
+.pointsDisplay {
+  font-size: 1.5rem;
+  color: #2c3e50;
+  margin-top: 1rem;
 }
 
 .phoneDisplay {
@@ -269,4 +269,29 @@
 
 .editButton:hover {
   background-color: #0b7dda;
+}
+
+.ordersSection {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.ordersSection h2 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: #333;
+  font-size: 1.5rem;
+}
+
+.ordersList {
+  margin-top: 1.5rem;
+}
+
+.noOrders {
+  color: #666;
+  font-style: italic;
+  margin: 1.5rem 0;
 } 

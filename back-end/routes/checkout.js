@@ -1,5 +1,9 @@
 const bodyParser = require('body-parser');
 const express = require('express');
+const dotenv = require('dotenv');
+
+// Load environment variables
+dotenv.config();
 
 const db = require('../db/index');
 const requireLogin = require('./middleware');
@@ -16,13 +20,15 @@ const stripe = require('stripe')(`${process.env.STRIPE_SECRET_KEY}`);
 
 router.post('/create-pending-order', requireLogin, jsonParser, async (req, res) => {
   try {
-    console.log('Order request received with body:', JSON.stringify(req.body));
-    
-    // Get user ID
     const userId = req.user.id;
+    const { 
+      address_id,
+      house_no, locality, city, country, postcode,
+      saveAddress,
+      redeemPoints
+    } = req.body;
     
-    // Check if we're using an existing address or creating a new one
-    const { address_id, house_no, locality, city, country, postcode, saveAddress } = req.body;
+    console.log('Create pending order request received:', req.body);
     
     let orderAddressId = null;
     
@@ -69,14 +75,14 @@ router.post('/create-pending-order', requireLogin, jsonParser, async (req, res) 
 
     // Create pending order with the address
     console.log('Creating pending order with address_id:', orderAddressId);
-    const orderDetails = await db.createPendingOrder(userId, orderAddressId);
+    const orderDetails = await db.createPendingOrder(userId, orderAddressId, redeemPoints);
     console.log('Order created with ID:', orderDetails.order_id);
     
     res.status(201).json(orderDetails);
 
-  } catch(err) {
-    console.error('Error creating order:', err);
-    res.status(500).send('Order creation failed. Please ensure you are providing valid data.');
+  } catch (err) {
+    console.error('Error creating pending order:', err);
+    res.status(500).send('Server error: Failed to create order');
   }
 });
 
@@ -86,6 +92,7 @@ router.post('/create-payment-session', requireLogin, async (req, res) => {
   try {
     const orderId = req.query.order_id;
     const orderData = await db.getOrderById(orderId);
+    console.log('Order data:', orderData);
 
     // Generate checkout session Price objects (payment line items)
     const orderItemsData = orderData.order_items.map(item => {
@@ -101,12 +108,20 @@ router.post('/create-payment-session', requireLogin, async (req, res) => {
       }
     });
 
+    console.log('Order items data:', orderItemsData);
+
     const session = await stripe.checkout.sessions.create({
       ui_mode: 'embedded',
       line_items: orderItemsData,
       mode: 'payment',
       return_url: `${process.env.FRONT_END_BASE_URL}/checkout/${orderId}/payment-return?session_id={CHECKOUT_SESSION_ID}`,
     });
+  
+    console.log('Stripe session created:', session);
+  
+    if (!session.client_secret) {
+      throw new Error('Failed to retrieve client secret from Stripe session');
+    }
   
     res.send({clientSecret: session.client_secret});
 
@@ -152,6 +167,97 @@ router.put('/confirm-paid-order', async (req, res) => {
   } catch(err) {
     console.error('Error in confirm-paid-order endpoint:', err);
     res.status(500).send('Failed to confirm paid order');
+  }
+});
+
+
+router.post('/confirm-payment', requireLogin, async (req, res) => {
+  console.log('Confirm payment request received');
+  console.log('Query parameters:', req.query);
+  console.log('User ID:', req.user?.id || 'User not authenticated');
+  
+  try {
+    const orderId = req.query.order_id;
+    if (!orderId) {
+      console.error('Missing order_id in request');
+      return res.status(400).json({ error: 'Order ID is required' });
+    }
+
+    console.log(`Processing order confirmation for order ID: ${orderId}`);
+
+    // Check if order exists
+    try {
+      const orderStatus = await db.getOrderStatus(orderId);
+      if (!orderStatus) {
+        console.error(`Order with ID ${orderId} not found`);
+        return res.status(404).json({ error: 'Order not found' });
+      }
+
+      console.log(`Current order status: ${orderStatus}`);
+
+      // Get order details before confirmation
+      const preOrderDetails = await db.getOrderById(orderId);
+      console.log('Order details before confirmation:', {
+        customer_id: preOrderDetails.customer_id,
+        total_cost: preOrderDetails.total_cost,
+        redeem_loyalty_points: preOrderDetails.redeem_loyalty_points,
+        points_redeemed: preOrderDetails.points_redeemed
+      });
+
+      // Check loyalty points before update
+      try {
+        const loyaltyPointsRes = await db.query(
+          'SELECT loyalty_points FROM customer_loyalty WHERE customer_id=$1',
+          [req.user.id]
+        );
+        const pointsBefore = loyaltyPointsRes.rowCount > 0 ? loyaltyPointsRes.rows[0].loyalty_points : 0;
+        console.log(`Current loyalty points before update: ${pointsBefore}`);
+      } catch (lpErr) {
+        console.error('Error checking loyalty points before update:', lpErr);
+      }
+
+      // Confirm the order
+      const confirmedOrder = await db.confirmPaidOrder(orderId);
+      console.log(`Order ${orderId} confirmed successfully`);
+
+      // Check loyalty points after update
+      let updatedLoyaltyPoints = 0;
+      try {
+        const loyaltyPointsRes = await db.query(
+          'SELECT loyalty_points FROM customer_loyalty WHERE customer_id=$1',
+          [req.user.id]
+        );
+        updatedLoyaltyPoints = loyaltyPointsRes.rowCount > 0 ? loyaltyPointsRes.rows[0].loyalty_points : 0;
+        console.log(`Loyalty points after update: ${updatedLoyaltyPoints}`);
+      } catch (lpErr) {
+        console.error('Error checking loyalty points after update:', lpErr);
+      }
+
+      // Clear the user's cart
+      const userId = req.user.id;
+      console.log(`Attempting to clear cart for user ID: ${userId}`);
+      
+      try {
+        await db.clearCart(userId);
+        console.log(`Cart cleared successfully for user ID: ${userId}`);
+      } catch (cartError) {
+        console.error(`Error clearing cart for user ${userId}:`, cartError);
+        // Continue with the process even if cart clearing fails
+      }
+
+      res.status(200).json({ 
+        message: 'Payment confirmed and cart cleared', 
+        orderId,
+        orderDetails: confirmedOrder,
+        currentLoyaltyPoints: updatedLoyaltyPoints
+      });
+    } catch (innerErr) {
+      console.error('Error processing order:', innerErr);
+      return res.status(500).json({ error: 'Error processing order', details: innerErr.message });
+    }
+  } catch (err) {
+    console.error('Error confirming payment:', err);
+    res.status(500).json({ error: 'Failed to confirm payment', details: err.message });
   }
 });
 

@@ -28,10 +28,30 @@ export default function PaymentReturn() {
     if (status === "complete" && !orderConfirmed) {
       const urlParams = new URLSearchParams(window.location.search);
       const sessionId = urlParams.get("session_id");
-      const basePath = `${process.env.REACT_APP_API_BASE_URL}/checkout/confirm-paid-order`;
+      
+      // Use confirm-payment to get updated loyalty points
+      const confirmPaymentPath = `${process.env.REACT_APP_API_BASE_URL}/checkout/confirm-payment`;
 
-      fetch(`${basePath}?order_id=${orderId}&session_id=${sessionId}`, { method: "PUT" })
-        .then(() => {
+      // Add credentials to ensure the session is included
+      fetch(`${confirmPaymentPath}?order_id=${orderId}&session_id=${sessionId}`, { 
+        method: "POST",
+        credentials: "include"
+      })
+        .then(res => res.json())
+        .then(data => {
+          console.log("Order confirmation response:", data);
+          
+          // Store updated loyalty points in session storage
+          if (data.currentLoyaltyPoints !== undefined) {
+            sessionStorage.setItem('currentLoyaltyPoints', data.currentLoyaltyPoints.toString());
+            console.log("Updated loyalty points in session storage:", data.currentLoyaltyPoints);
+          }
+          
+          setOrderConfirmed(true);
+        })
+        .catch(err => {
+          console.error("Error confirming payment:", err);
+          // Still set orderConfirmed to true to proceed
           setOrderConfirmed(true);
         });
     }

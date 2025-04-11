@@ -94,7 +94,7 @@ export function ProductDetail() {
 
   const { short_description, long_description, avg_rating, rating_count, price } = productData;
   const stock_count = productData.available_stock_count;
-  const imagePath = getProductImagePath(productData.id, productData.name);
+  const imagePath = getProductImagePath(productData.id, productData.name, productData.image_path);
 
   function renderButton() {
     const buttonStyles = `${utilStyles.button} ${styles.button}`;

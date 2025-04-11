@@ -46,9 +46,9 @@ export async function removeCartItemAction({ request }: { request: Request }) {
 
 
 export function OrderItem({ orderItemData, editable, lastItem }: OrderItemProps) {
-  const { product_id, product_name, product_price, product_quantity } = orderItemData;
+  const { product_id, product_name, product_price, product_quantity, image_path } = orderItemData;
   const productPath = getProductDetailPath(product_id, product_name);
-  const imagePath = getProductImagePath(product_id, product_name);
+  const imagePath = getProductImagePath(product_id, product_name, image_path);
 
   return (
     <div className={styles.orderItem}>

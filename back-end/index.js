@@ -17,6 +17,7 @@ const ordersRouter = require('./routes/orders');
 const productsRouter = require('./routes/products');
 const customersRouter = require('./routes/customers');
 const manufacturersRouter = require('./routes/manufacturers');
+const manufacturerRouter = require('./routes/manufacturer');
 
 const api = express();
 const port = process.env.PORT;
@@ -30,11 +31,23 @@ const devOrigin = ["https://web.postman.co/", "http://localhost", /http:\/\/loca
 const prodOrigin = process.env.FRONT_END_BASE_URL;
 const origin = process.env.NODE_ENV !== "production" ? devOrigin : prodOrigin;
 
+console.log("CORS origin configuration:", origin);
+
+// Create a more permissive CORS setup to help troubleshoot connection issues
 api.use(cors({
-  origin,
+  origin: true, // Allow all origins temporarily for debugging
   credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
+  exposedHeaders: ["Set-Cookie"]
 }));
 
+// Logging middleware to capture all requests
+api.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} ${req.method} ${req.url}`);
+  console.log('Headers:', req.headers);
+  next();
+});
 
 // https://www.passportjs.org/concepts/authentication/sessions/
 // https://www.passportjs.org/howtos/session/
@@ -88,6 +101,7 @@ api.use('/orders', ordersRouter);
 api.use('/products', productsRouter);
 api.use('/customers', customersRouter);
 api.use('/manufacturers', manufacturersRouter);
+api.use('/manufacturer', manufacturerRouter);
 
 api.server = api.listen(port, () => {
   console.log(`Server listening on port ${port} in the ${process.env.NODE_ENV} environment.`);

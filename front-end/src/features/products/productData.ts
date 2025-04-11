@@ -7,4 +7,5 @@ export type ProductData = {
   price: string,
   rating_count: number,
   short_description: string,
+  image_path?: string,
 }
